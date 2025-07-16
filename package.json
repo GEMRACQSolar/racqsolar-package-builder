@@ -4,7 +4,7 @@
     "type": "git",
     "url": "https://github.com/GEMRACQSolar/racqsolar-package-builder"
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "license": "MIT",
   "scripts": {
     "build": "weweb build",
