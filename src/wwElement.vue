@@ -58,25 +58,25 @@
             <h3>Hardware Selection</h3>
             
             <div class="form-group">
-              <label>Solar Panels *</label>
-              <select v-model="formData.panel_id" @change="calculateSystemSize" required>
-                <option value="">Select panels...</option>
+              <label>Solar Panels</label>
+              <select v-model="formData.panel_id" @change="calculateSystemSize">
+                <option value="">No panels</option>
                 <option v-for="panel in content.panels" :key="panel.id" :value="panel.id">
                   {{ panel.manufacturer }} {{ panel.model }} - {{ panel.power_rating }}W
                 </option>
               </select>
             </div>
 
-            <div class="form-group">
-              <label>Number of Panels *</label>
+            <div class="form-group" v-if="formData.panel_id">
+              <label>Number of Panels</label>
               <input type="number" v-model.number="formData.panel_quantity" 
-                     @input="calculateSystemSize" min="1" required>
+                     @input="calculateSystemSize" min="1">
             </div>
 
             <div class="form-group">
-              <label>Inverter *</label>
-              <select v-model="formData.inverter_id" required>
-                <option value="">Select inverter...</option>
+              <label>Inverter</label>
+              <select v-model="formData.inverter_id">
+                <option value="">No inverter</option>
                 <option v-for="inverter in content.inverters" :key="inverter.id" :value="inverter.id">
                   {{ inverter.manufacturer }} {{ inverter.model }} - {{ inverter.rated_capacity_kw }}kW
                 </option>
@@ -84,7 +84,7 @@
             </div>
 
             <div class="form-group">
-              <label>Battery (Optional)</label>
+              <label>Battery</label>
               <select v-model="formData.battery_id" @change="calculateSystemSize">
                 <option value="">No battery</option>
                 <option v-for="battery in content.batteries" :key="battery.id" :value="battery.id">
@@ -98,17 +98,36 @@
               <input type="number" v-model.number="formData.battery_quantity" 
                      @input="calculateSystemSize" min="1">
             </div>
+
+            <div class="form-group">
+              <label>Other Hardware</label>
+              <div class="other-hardware-container">
+                <div v-for="(item, index) in formData.other_hardware" :key="index" class="other-hardware-item">
+                  <select v-model="item.id" class="other-select">
+                    <option value="">Select hardware...</option>
+                    <option v-for="hardware in content.additionalMaterials" :key="hardware.id" :value="hardware.id">
+                      {{ hardware.name }}
+                    </option>
+                  </select>
+                  <input type="number" v-model.number="item.quantity" min="1" placeholder="Qty" class="qty-input">
+                  <button type="button" @click="removeOtherHardware(index)" class="btn btn-sm btn-danger">×</button>
+                </div>
+                <button type="button" @click="addOtherHardware()" class="btn btn-sm btn-secondary">
+                  Add Other Hardware
+                </button>
+              </div>
+            </div>
           </section>
 
           <!-- Auto-calculated Fields -->
           <section class="form-section calculated-fields">
             <h3>System Specifications</h3>
             <div class="specs-grid">
-              <div class="spec-item">
+              <div class="spec-item" v-if="formData.array_size_kw > 0">
                 <label>Array Size</label>
                 <div class="value">{{ formData.array_size_kw }} kW</div>
               </div>
-              <div class="spec-item" v-if="formData.battery_size_kwh">
+              <div class="spec-item" v-if="formData.battery_size_kwh > 0">
                 <label>Battery Capacity</label>
                 <div class="value">{{ formData.battery_size_kwh }} kWh</div>
               </div>
@@ -221,9 +240,6 @@ export default {
     isFormValid() {
       return this.formData.name && 
              this.formData.tagline && 
-             this.formData.panel_id && 
-             this.formData.panel_quantity > 0 &&
-             this.formData.inverter_id &&
              this.formData.base_price > 0
     }
   },
@@ -255,12 +271,13 @@ export default {
         name: '',
         tagline: '',
         description: '',
-        system_type: 'pv_only',
+        system_type: 'other',
         panel_id: '',
         panel_quantity: 10,
         inverter_id: '',
         battery_id: '',
         battery_quantity: 1,
+        other_hardware: [],
         array_size_kw: 0,
         battery_size_kwh: 0,
         base_price: 0,
@@ -300,7 +317,18 @@ export default {
     },
     
     loadPackageData(pkg) {
-      this.formData = { ...pkg }
+      this.formData = { 
+        ...pkg,
+        other_hardware: pkg.other_hardware || []
+      }
+    },
+    
+    addOtherHardware() {
+      this.formData.other_hardware.push({ id: '', quantity: 1 })
+    },
+    
+    removeOtherHardware(index) {
+      this.formData.other_hardware.splice(index, 1)
     },
     
     calculateSystemSize() {
@@ -310,6 +338,8 @@ export default {
         if (panel) {
           this.formData.array_size_kw = (panel.power_rating * this.formData.panel_quantity / 1000).toFixed(2)
         }
+      } else {
+        this.formData.array_size_kw = 0
       }
       
       // Calculate battery size
@@ -317,14 +347,23 @@ export default {
         const battery = this.content.batteries?.find(b => b.id === this.formData.battery_id)
         if (battery) {
           this.formData.battery_size_kwh = (battery.usable_capacity_kwh * this.formData.battery_quantity).toFixed(1)
-          this.formData.system_type = 'pv_and_battery'
-        } else {
-          this.formData.battery_size_kwh = 0
-          this.formData.system_type = 'pv_only'
         }
       } else {
         this.formData.battery_size_kwh = 0
+      }
+      
+      // Determine system type
+      const hasPanels = this.formData.panel_id && this.formData.array_size_kw > 0
+      const hasBattery = this.formData.battery_id && this.formData.battery_size_kwh > 0
+      
+      if (hasPanels && hasBattery) {
+        this.formData.system_type = 'pv_and_battery'
+      } else if (hasPanels && !hasBattery) {
         this.formData.system_type = 'pv_only'
+      } else if (!hasPanels && hasBattery) {
+        this.formData.system_type = 'battery_only'
+      } else {
+        this.formData.system_type = 'other'
       }
       
       this.calculateFinalPrice()
@@ -345,8 +384,8 @@ export default {
     async savePackage() {
       const eventName = this.currentMode === 'create' ? 'package:created' : 'package:updated'
       
-      // In a real implementation, you would save to Supabase here
-      // For now, we'll just emit the event
+      // Clean up empty other hardware items
+      this.formData.other_hardware = this.formData.other_hardware.filter(item => item.id)
       
       this.$emit('trigger-event', {
         name: eventName,
@@ -374,7 +413,9 @@ export default {
     formatSystemType(type) {
       const types = {
         'pv_only': 'PV Only',
-        'pv_and_battery': 'PV & Battery'
+        'pv_and_battery': 'PV & Battery',
+        'battery_only': 'Battery Only',
+        'other': 'Other'
       }
       return types[type] || type
     },
@@ -542,6 +583,16 @@ export default {
   color: #2e7d32;
 }
 
+.system-type.battery_only {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.system-type.other {
+  background: #f8f9fa;
+  color: #6c757d;
+}
+
 .package-details {
   margin-bottom: 1rem;
 }
@@ -630,6 +681,27 @@ export default {
 .form-group textarea:focus {
   outline: none;
   border-color: #0066cc;
+}
+
+/* Other Hardware */
+.other-hardware-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.other-hardware-item {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.other-select {
+  flex: 1;
+}
+
+.qty-input {
+  width: 80px;
 }
 
 /* Calculated Fields */
