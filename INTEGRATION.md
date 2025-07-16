@@ -15,7 +15,7 @@
    - **panels**: Your solar panels collection
    - **inverters**: Your inverters collection  
    - **batteries**: Your batteries collection
-   - **additionalMaterials**: Your other materials collection
+   - **additionalMaterials**: Your other hardware collection (smart meters, racking, etc.)
 
 3. **Handle Events**
 
@@ -24,6 +24,12 @@
    - `package:created` - Save new package to Supabase
    - `package:updated` - Update existing package
    - `package:deleted` - Delete package from Supabase
+
+## What's New in v1.1.0
+
+- **All hardware fields are now optional** - Create battery-only packages, PV-only packages, or custom configurations
+- **Other Hardware section** - Add smart meters, racking systems, and other components
+- **New system types** - Supports `pv_only`, `pv_and_battery`, `battery_only`, and `other`
 
 ## Example Supabase Integration
 
@@ -58,8 +64,16 @@ The component has three modes:
 The component automatically calculates:
 - Array size based on panel selection and quantity
 - Battery capacity based on battery selection and quantity
-- System type (PV Only or PV & Battery)
+- System type (PV Only, PV & Battery, Battery Only, or Other)
 - Final price based on discounts
+
+## Data Structure
+
+Each package includes:
+- Basic hardware (panels, inverter, battery) - all optional
+- Other hardware array: `[{ id: 'hardware_id', quantity: 1 }]`
+- Package details (name, tagline, description)
+- Pricing information (base price, discount, final price)
 
 ## Customization
 
